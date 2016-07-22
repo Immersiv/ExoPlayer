@@ -15,7 +15,6 @@
  */
 package com.google.android.exoplayer.hls;
 
-import com.google.android.exoplayer.BehindLiveWindowException;
 import com.google.android.exoplayer.C;
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.chunk.Chunk;
@@ -451,6 +450,7 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
 
     selectedVariantIndex = nextVariantIndex;
     int chunkMediaSequence = 0;
+    boolean liveDiscontinuity = false;
     if (live) {
       if (previousTsChunk == null) {
         chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
@@ -458,8 +458,8 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
         chunkMediaSequence = switchingVariantSpliced
             ? previousTsChunk.chunkIndex : previousTsChunk.chunkIndex + 1;
         if (chunkMediaSequence < mediaPlaylist.mediaSequence) {
-          fatalError = new BehindLiveWindowException();
-          return;
+          chunkMediaSequence = getLiveStartChunkMediaSequence(nextVariantIndex);
+          liveDiscontinuity = true;
         }
       }
     } else {
@@ -549,7 +549,7 @@ public class HlsChunkSource implements HlsTrackSelector.Output {
       Extractor extractor = new WebvttExtractor(timestampAdjuster);
       extractorWrapper = new HlsExtractorWrapper(trigger, format, startTimeUs, extractor,
           switchingVariantSpliced, MediaFormat.NO_VALUE, MediaFormat.NO_VALUE);
-    } else if (previousTsChunk == null
+    } else if (previousTsChunk == null || liveDiscontinuity
         || previousTsChunk.discontinuitySequenceNumber != segment.discontinuitySequenceNumber
         || !format.equals(previousTsChunk.format)) {
       // MPEG-2 TS segments, but we need a new extractor.
